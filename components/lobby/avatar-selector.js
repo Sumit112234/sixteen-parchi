@@ -29,7 +29,7 @@ export default function AvatarSelector({ selectedAvatar, onSelectAvatar }) {
             >
               <div className="w-full aspect-square rounded overflow-hidden">
                 <img
-                  src={`https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQt_0plSJKNSdr-PRYr_V36bNZDdEa_TXeBqg&s`}
+                  src={`/avatars/avatar-${avatarId}.jpg`}
                   alt={`Avatar ${avatarId}`}
                   className="w-full h-full object-cover"
                 />

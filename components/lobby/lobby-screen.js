@@ -259,7 +259,7 @@ export default function LobbyScreen() {
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
                   <img
-                    src={`/avatars/avatar-${playerInfo.avatarId}.png`}
+                    src={`/avatars/avatar-${playerInfo.avatarId}.jpg`}
                     alt="Your avatar"
                     className="w-full h-full object-cover"
                   />
