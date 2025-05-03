@@ -48,7 +48,7 @@ export default function ChatBox({ messages, onSendMessage, playerInfo, isSpectat
                 {msg.senderId !== playerInfo.id && msg.senderId !== "system" && (
                   <div className="w-6 h-6 rounded-full bg-gray-700 flex-shrink-0 mr-2 overflow-hidden">
                     <img
-                      src={`/avatars/avatar-${msg.senderAvatar}.png`}
+                      src={`/avatars/avatar-${msg.senderAvatar}.jpg`}
                       alt={msg.senderName}
                       className="w-full h-full object-cover"
                     />
@@ -79,7 +79,7 @@ export default function ChatBox({ messages, onSendMessage, playerInfo, isSpectat
                 {msg.senderId === playerInfo.id && (
                   <div className="w-6 h-6 rounded-full bg-gray-700 flex-shrink-0 ml-2 overflow-hidden">
                     <img
-                      src={`/avatars/avatar-${msg.senderAvatar}.png`}
+                      src={`/avatars/avatar-${msg.senderAvatar}.jpg`}
                       alt={msg.senderName}
                       className="w-full h-full object-cover"
                     />

@@ -21,7 +21,7 @@ export default function SpectatorList({ spectators }) {
           >
             <div className="w-5 h-5 rounded-full bg-gray-800 border border-blue-700 flex items-center justify-center overflow-hidden mr-1">
               <img
-                src={`/avatars/avatar-${spectator.avatarId}.png`}
+                src={`/avatars/avatar-${spectator.avatarId}.jpg`}
                 alt={spectator.name}
                 className="w-full h-full object-cover"
               />

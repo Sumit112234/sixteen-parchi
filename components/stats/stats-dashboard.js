@@ -105,7 +105,7 @@ export default function StatsDashboard({ userId }) {
                   <td className="py-2 px-4 flex items-center">
                     <div className="w-6 h-6 rounded-full overflow-hidden mr-2">
                       <img
-                        src={`/avatars/avatar-${player.avatarId}.png`}
+                        src={`/avatars/avatar-${player.avatarId}.jpg`}
                         alt={player.username}
                         className="w-full h-full object-cover"
                       />
@@ -153,7 +153,7 @@ export default function StatsDashboard({ userId }) {
                     >
                       <div className="w-4 h-4 rounded-full overflow-hidden mr-1">
                         <img
-                          src={`/avatars/avatar-${player.avatarId}.png`}
+                          src={`/avatars/avatar-${player.avatarId}.jpg`}
                           alt={player.name}
                           className="w-full h-full object-cover"
                         />
