@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getUserById, updateUserStats, saveCustomCardDesign } from "@/models/user"
+import { getUserById, updateUserStats, saveCustomCardDesign, updateUserProfile } from "@/models/user"
 
 export async function GET(request, { params }) {
   try {
@@ -20,6 +20,11 @@ export async function PATCH(request, { params }) {
   try {
     const { id } = params
     const body = await request.json()
+
+    // Update user profile
+    if (body.profile) {
+      await updateUserProfile(id, body.profile)
+    }
 
     // Update user stats
     if (body.stats) {

@@ -1,22 +1,23 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { motion } from "framer-motion"
 import { useAudio } from "@/hooks/use-audio"
 import AvatarSelector from "../lobby/avatar-selector"
 
-export default function AuthModal({ onLogin, onRegister, onClose , isOpen }) {
-
-  if(!isOpen) return null
+export default function AuthModal({ onLogin, onRegister, onClose }) {
   const [isLogin, setIsLogin] = useState(true)
   const [formData, setFormData] = useState({
     username: "",
     email: "",
     password: "",
     avatarId: 1,
+    customAvatar: null,
   })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [useCustomAvatar, setUseCustomAvatar] = useState(false)
+  const fileInputRef = useRef(null)
 
   const { playSound } = useAudio()
 
@@ -27,6 +28,33 @@ export default function AuthModal({ onLogin, onRegister, onClose , isOpen }) {
 
   const handleAvatarSelect = (avatarId) => {
     setFormData((prev) => ({ ...prev, avatarId }))
+  }
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setFormData((prev) => ({ ...prev, customAvatar: data.url }))
+      } else {
+        setError(data.error || "Failed to upload image")
+        playSound("error")
+      }
+    } catch (err) {
+      setError("Error uploading image")
+      playSound("error")
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -58,7 +86,10 @@ export default function AuthModal({ onLogin, onRegister, onClose , isOpen }) {
         const response = await fetch("/api/users", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+          body: JSON.stringify({
+            ...formData,
+            avatarId: useCustomAvatar ? null : formData.avatarId,
+          }),
         })
 
         const data = await response.json()
@@ -160,7 +191,60 @@ export default function AuthModal({ onLogin, onRegister, onClose , isOpen }) {
             />
           </div>
 
-          {!isLogin && <AvatarSelector selectedAvatar={formData.avatarId} onSelectAvatar={handleAvatarSelect} />}
+          {!isLogin && (
+            <>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="useCustomAvatar"
+                  checked={useCustomAvatar}
+                  onChange={() => setUseCustomAvatar(!useCustomAvatar)}
+                  className="rounded text-purple-500 focus:ring-purple-500"
+                />
+                <label htmlFor="useCustomAvatar" className="text-sm">
+                  Upload custom avatar
+                </label>
+              </div>
+
+              {useCustomAvatar ? (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Custom Avatar</label>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors"
+                    >
+                      Choose File
+                    </button>
+                    <span className="text-sm text-gray-400">
+                      {formData.customAvatar ? "Image selected" : "No file chosen"}
+                    </span>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </div>
+                  {formData.customAvatar && (
+                    <div className="mt-2 flex justify-center">
+                      <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-purple-500">
+                        <img
+                          src={formData.customAvatar || "/placeholder.svg"}
+                          alt="Custom avatar"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <AvatarSelector selectedAvatar={formData.avatarId} onSelectAvatar={handleAvatarSelect} />
+              )}
+            </>
+          )}
 
           <button
             type="submit"

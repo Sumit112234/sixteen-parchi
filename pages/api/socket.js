@@ -61,15 +61,16 @@ function dealCards(roomId) {
 function checkWinner(player) {
   if (!player.hand || player.hand.length !== 4) return false
 
+  // Count cards by hero type
   const heroCount = {}
-
   player.hand.forEach((card) => {
-    const heroKey = card.hero
-    heroCount[heroKey] = (heroCount[heroKey] || 0) + 1
+    heroCount[card.hero] = (heroCount[card.hero] || 0) + 1
   })
 
+  // Check if any hero has a count of 4
   for (const [hero, count] of Object.entries(heroCount)) {
     if (count === 4) {
+      console.log(`Winner found! ${player.name} has 4 ${hero} cards.`)
       return { winner: player, winningHero: hero }
     }
   }
@@ -637,22 +638,28 @@ export default function SocketHandler(req, res) {
       const nextPlayerId = playerIds[nextPlayerIndex]
       const nextPlayer = room.players.get(nextPlayerId)
 
-      // Check if the card being passed is the last received card
+      // Get the selected card
       const selectedCard = currentPlayer.hand[cardIndex]
-      if (
-        currentPlayer.lastReceivedCard &&
-        selectedCard.hero === currentPlayer.lastReceivedCard.hero &&
-        selectedCard.points === currentPlayer.lastReceivedCard.points
-      ) {
-        socket.emit("error", { message: "You cannot pass the card you just received" })
-        return
+
+      // Check if this is the exact card that was just received (by reference)
+      if (currentPlayer.lastReceivedCard === selectedCard) {
+        // Count how many cards of this hero the player has
+        const heroCount = currentPlayer.hand.filter((card) => card.hero === selectedCard.hero).length
+
+        // If player has more than one card of this hero, they can pass it
+        if (heroCount <= 1) {
+          socket.emit("error", {
+            message: "You cannot pass the card you just received unless you have multiple cards of this hero",
+          })
+          return
+        }
       }
 
       // Pass the card
       const card = currentPlayer.hand.splice(cardIndex, 1)[0]
       nextPlayer.hand.push(card)
 
-      // Set the lastReceivedCard for the next player
+      // Set the lastReceivedCard for the next player (by reference)
       nextPlayer.lastReceivedCard = card
 
       // Update hand sizes and cards played

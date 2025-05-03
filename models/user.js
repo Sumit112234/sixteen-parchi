@@ -1,7 +1,7 @@
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
-export async function createUser({ username, email, avatarId, password }) {
+export async function createUser({ username, email, avatarId, password, customAvatar }) {
   const { db } = await connectToDatabase()
 
   // Check if user already exists
@@ -15,6 +15,7 @@ export async function createUser({ username, email, avatarId, password }) {
     username,
     email,
     avatarId: avatarId || 1,
+    customAvatar, // Store custom avatar URL if provided
     password, // In a real app, this should be hashed
     createdAt: new Date(),
     stats: {
@@ -50,6 +51,11 @@ export async function updateUserStats(userId, stats) {
   return db.collection("users").updateOne({ _id: new ObjectId(userId) }, { $set: { stats } })
 }
 
+export async function updateUserProfile(userId, profileData) {
+  const { db } = await connectToDatabase()
+  return db.collection("users").updateOne({ _id: new ObjectId(userId) }, { $set: profileData })
+}
+
 export async function saveCustomCardDesign(userId, designName, design) {
   const { db } = await connectToDatabase()
   return db
@@ -62,7 +68,7 @@ export async function getLeaderboard(limit = 10) {
   return db
     .collection("users")
     .find({})
-    .project({ username: 1, avatarId: 1, "stats.wins": 1, "stats.gamesPlayed": 1 })
+    .project({ username: 1, avatarId: 1, customAvatar: 1, "stats.wins": 1, "stats.gamesPlayed": 1 })
     .sort({ "stats.wins": -1 })
     .limit(limit)
     .toArray()
