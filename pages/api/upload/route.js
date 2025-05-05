@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { writeFile } from "fs/promises"
 import { join } from "path"
 import { v4 as uuidv4 } from "uuid"
-// postgresql://neondb_owner:npg_Fh1G3QWslopj@ep-red-union-a4tiqc57-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require
+
 export async function POST(request) {
   try {
     const formData = await request.formData()

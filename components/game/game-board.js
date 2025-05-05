@@ -8,6 +8,7 @@ import ChatBox from "./chat-box"
 import { useAudio } from "@/hooks/use-audio"
 import GameTimer from "./game-timer"
 import SpectatorList from "./spectator-list"
+import { Button } from "../custom/button"
 
 export default function GameBoard({ socket, room, playerInfo, onLeaveRoom, user }) {
   const [gameState, setGameState] = useState({
@@ -162,19 +163,22 @@ export default function GameBoard({ socket, room, playerInfo, onLeaveRoom, user 
   const isSpectator = room.spectators && room.spectators.some((s) => s.id === playerInfo.id)
 
   return (
-    <div className="w-full">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full p-4">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex justify-between items-center mb-4"
       >
-        <h2 className="text-2xl font-bold">Room: {room.name}</h2>
-        <button
-          onClick={onLeaveRoom}
-          className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+        <motion.h2
+          initial={{ x: -20, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 text-transparent bg-clip-text"
         >
+          Room: {room.name}
+        </motion.h2>
+        <Button onClick={onLeaveRoom} variant="danger" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
           Leave Room
-        </button>
+        </Button>
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
@@ -188,13 +192,18 @@ export default function GameBoard({ socket, room, playerInfo, onLeaveRoom, user 
           />
 
           {gameState.gameStarted && gameState.currentPlayer && !gameState.winner && (
-            <div className="mt-4 mb-2">
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-4 mb-2"
+            >
               <GameTimer
                 isActive={gameState.currentPlayer === playerInfo.id}
                 duration={gameState.turnDuration}
                 onTimeUp={handleTimeUp}
               />
-            </div>
+            </motion.div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -223,21 +232,31 @@ export default function GameBoard({ socket, room, playerInfo, onLeaveRoom, user 
           </div>
 
           {gameState.spectators && gameState.spectators.length > 0 && (
-            <div className="mt-4">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="mt-4"
+            >
               <SpectatorList spectators={gameState.spectators} />
-            </div>
+            </motion.div>
           )}
         </div>
 
-        <div className="lg:col-span-1">
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          className="lg:col-span-1"
+        >
           <ChatBox
             messages={gameState.messages}
             onSendMessage={sendMessage}
             playerInfo={playerInfo}
             isSpectator={isSpectator}
           />
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   )
 }

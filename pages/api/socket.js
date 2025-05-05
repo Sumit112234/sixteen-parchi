@@ -2,6 +2,11 @@ import { Server } from "socket.io"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
+// Import the AI opponent
+import AIOpponent from "@/components/ai/ai-opponent"
+import { createPrivateRoom, validatePrivateRoom } from "@/models/game"
+import { checkAndUnlockAchievements } from "@/models/user"
+
 // Game data
 const superheroes = [
   { hero: "Superman", points: 10 },
@@ -289,6 +294,32 @@ export default function SocketHandler(req, res) {
       socket.emit("roomList", getRoomList())
     })
 
+    // Create private room
+    socket.on("createPrivateRoom", async ({ roomId, password, creatorId }) => {
+      try {
+        await createPrivateRoom(roomId, password, creatorId)
+        socket.emit("privateRoomCreated", { roomId })
+      } catch (error) {
+        socket.emit("error", { message: error.message || "Failed to create private room" })
+      }
+    })
+
+    // Join private room
+    socket.on("joinPrivateRoom", async ({ roomId, password }) => {
+      try {
+        const isValid = await validatePrivateRoom(roomId, password)
+        if (!isValid) {
+          socket.emit("error", { message: "Invalid room ID or password" })
+          return
+        }
+
+        // Now join the room normally
+        socket.emit("privateRoomValidated", { roomId })
+      } catch (error) {
+        socket.emit("error", { message: error.message || "Failed to join private room" })
+      }
+    })
+
     // Create room
     socket.on("createRoom", ({ roomName, maxPlayers, turnDuration, createdBy }) => {
       const player = players.get(socket.id)
@@ -551,6 +582,125 @@ export default function SocketHandler(req, res) {
       io.emit("roomList", getRoomList())
     })
 
+    // Add AI player to room
+    socket.on("addAIPlayer", ({ roomId, difficulty }) => {
+      const player = players.get(socket.id)
+      const room = rooms.get(roomId)
+
+      if (!player || !room) return
+
+      // Check if player is room creator
+      if (room.createdBy !== socket.id) {
+        socket.emit("error", { message: "Only room creator can add AI players" })
+        return
+      }
+
+      // Check if room is full
+      if (room.players.size >= room.maxPlayers) {
+        socket.emit("error", { message: "Room is full" })
+        return
+      }
+
+      // Create AI player
+      const aiId = `ai-${generateId()}`
+      const aiPlayer = {
+        id: aiId,
+        name: `AI ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}`,
+        avatarId: Math.floor(Math.random() * 8) + 1,
+        isAI: true,
+        difficulty,
+        handSize: 0,
+        hand: [],
+        cardsPlayed: 0,
+        ai: new AIOpponent(difficulty),
+      }
+
+      // Add AI player to room
+      room.players.set(aiId, aiPlayer)
+
+      // Add system message
+      const message = {
+        senderId: "system",
+        senderName: "System",
+        senderAvatar: 1,
+        text: `AI player ${aiPlayer.name} has joined the room.`,
+        timestamp: Date.now(),
+      }
+
+      room.messages.push(message)
+
+      // Broadcast updated player list to room
+      io.to(roomId).emit(
+        "playerJoined",
+        Array.from(room.players.values()).map((p) => ({
+          id: p.id,
+          name: p.name,
+          avatarId: p.avatarId,
+          handSize: p.handSize || 0,
+          isAI: p.isAI || false,
+        })),
+      )
+
+      io.to(roomId).emit("chatMessage", message)
+
+      // Broadcast updated room list to all clients
+      io.emit("roomList", getRoomList())
+    })
+
+    // Remove AI player from room
+    socket.on("removeAIPlayer", ({ roomId, aiId }) => {
+      const player = players.get(socket.id)
+      const room = rooms.get(roomId)
+
+      if (!player || !room) return
+
+      // Check if player is room creator
+      if (room.createdBy !== socket.id) {
+        socket.emit("error", { message: "Only room creator can remove AI players" })
+        return
+      }
+
+      // Check if AI player exists
+      if (!room.players.has(aiId) || !room.players.get(aiId).isAI) {
+        socket.emit("error", { message: "AI player not found" })
+        return
+      }
+
+      // Get AI player name
+      const aiName = room.players.get(aiId).name
+
+      // Remove AI player from room
+      room.players.delete(aiId)
+
+      // Add system message
+      const message = {
+        senderId: "system",
+        senderName: "System",
+        senderAvatar: 1,
+        text: `AI player ${aiName} has left the room.`,
+        timestamp: Date.now(),
+      }
+
+      room.messages.push(message)
+
+      // Broadcast updated player list to room
+      io.to(roomId).emit(
+        "playerLeft",
+        Array.from(room.players.values()).map((p) => ({
+          id: p.id,
+          name: p.name,
+          avatarId: p.avatarId,
+          handSize: p.handSize || 0,
+          isAI: p.isAI || false,
+        })),
+      )
+
+      io.to(roomId).emit("chatMessage", message)
+
+      // Broadcast updated room list to all clients
+      io.emit("roomList", getRoomList())
+    })
+
     // Start game
     socket.on("startGame", ({ roomId }) => {
       const room = rooms.get(roomId)
@@ -574,6 +724,13 @@ export default function SocketHandler(req, res) {
       room.gameStartTime = Date.now()
       room.turnStartTime = Date.now()
       dealCards(roomId)
+
+      // Set up AI players' hands
+      room.players.forEach((player, playerId) => {
+        if (player.isAI && player.ai) {
+          player.ai.setHand(player.hand)
+        }
+      })
 
       // Get current player
       const playerIds = Array.from(room.players.keys())
@@ -712,6 +869,17 @@ export default function SocketHandler(req, res) {
       // Update current player
       room.currentPlayerIndex = nextPlayerIndex
 
+      // Check if the next player is an AI
+      const nextPlayerIdForAI = playerIds[room.currentPlayerIndex]
+      const nextPlayerForAI = room.players.get(nextPlayerIdForAI)
+
+      if (nextPlayerForAI.isAI) {
+        // Add a small delay to make it feel more natural
+        setTimeout(() => {
+          handleAITurn(room, nextPlayerIdForAI)
+        }, 1500)
+      }
+
       // Send updated hands to the players involved
       io.to(currentPlayerId).emit("gameState", {
         hand: currentPlayer.hand,
@@ -730,6 +898,7 @@ export default function SocketHandler(req, res) {
           handSize: p.hand.length,
           userId: p.userId,
           customCardDesign: p.customCardDesign,
+          isAI: p.isAI || false,
         })),
         currentPlayer: playerIds[room.currentPlayerIndex],
         winner: room.winner,
@@ -1082,4 +1251,128 @@ export default function SocketHandler(req, res) {
 
   console.log("Socket server initialized")
   res.end()
+}
+
+// Add a function to handle AI turns
+function handleAITurn(room, aiId) {
+  const ai = room.players.get(aiId)
+  if (!ai || !ai.isAI || !ai.ai) return
+
+  // Update AI's knowledge of its hand
+  ai.ai.setHand(ai.hand)
+
+  // If AI received a card last turn, update that info
+  if (ai.lastReceivedCard) {
+    ai.ai.setLastReceivedCard(ai.lastReceivedCard)
+  }
+
+  // Let the AI choose a card to pass
+  const { card, index } = ai.ai.chooseCardToPass()
+
+  // Get the next player
+  const playerIds = Array.from(room.players.keys())
+  const currentPlayerIndex = room.currentPlayerIndex
+  const nextPlayerIndex = (currentPlayerIndex + 1) % playerIds.length
+  const nextPlayerId = playerIds[nextPlayerIndex]
+  const nextPlayer = room.players.get(nextPlayerId)
+
+  // Pass the card
+  ai.hand.splice(index, 1)
+  nextPlayer.hand.push(card)
+
+  // Set the lastReceivedCard for the next player
+  nextPlayer.lastReceivedCard = card
+
+  // Update hand sizes and cards played
+  ai.handSize = ai.hand.length
+  nextPlayer.handSize = nextPlayer.hand.length
+  ai.cardsPlayed = (ai.cardsPlayed || 0) + 1
+
+  // Update turn timer
+  room.turnStartTime = Date.now()
+
+  // Add system message
+  const message = {
+    senderId: "system",
+    senderName: "System",
+    senderAvatar: 1,
+    text: `${ai.name} passed a card to ${nextPlayer.name}.`,
+    timestamp: Date.now(),
+  }
+
+  room.messages.push(message)
+
+  // Check if the next player has won
+  const winResult = checkWinner(nextPlayer)
+  if (winResult) {
+    room.winner = {
+      id: nextPlayer.id,
+      name: nextPlayer.name,
+      winningHero: winResult.winningHero,
+      userId: nextPlayer.userId,
+    }
+
+    // Add system message for winner
+    const winMessage = {
+      senderId: "system",
+      senderName: "System",
+      senderAvatar: 1,
+      text: `${nextPlayer.name} wins with 4 ${winResult.winningHero} cards!`,
+      timestamp: Date.now(),
+    }
+
+    room.messages.push(winMessage)
+
+    // Save game result to database
+    saveGameResultToDb(room)
+
+    // Check for achievements if the winner is a human player
+    if (nextPlayer.userId && !nextPlayer.isAI) {
+      checkAndUnlockAchievements(nextPlayer.userId)
+    }
+
+    io.to(room.id).emit("gameWon", { winner: room.winner })
+    io.to(room.id).emit("chatMessage", winMessage)
+  }
+
+  // Update current player
+  room.currentPlayerIndex = nextPlayerIndex
+
+  // Send updated hands to the players involved
+  io.to(aiId).emit("gameState", {
+    hand: ai.hand,
+  })
+
+  io.to(nextPlayerId).emit("gameState", {
+    hand: nextPlayer.hand,
+  })
+
+  // Broadcast updated game state to room
+  io.to(room.id).emit("cardPassed", {
+    players: Array.from(room.players.values()).map((p) => ({
+      id: p.id,
+      name: p.name,
+      avatarId: p.avatarId,
+      handSize: p.hand.length,
+      userId: p.userId,
+      isAI: p.isAI || false,
+    })),
+    currentPlayer: playerIds[room.currentPlayerIndex],
+    winner: room.winner,
+    turnStartTime: room.turnStartTime,
+  })
+
+  io.to(room.id).emit("chatMessage", message)
+
+  // If the next player is also an AI, handle their turn after a delay
+  if (!room.winner) {
+    const nextNextPlayerId = playerIds[nextPlayerIndex]
+    const nextNextPlayer = room.players.get(nextNextPlayerId)
+
+    if (nextNextPlayer.isAI) {
+      setTimeout(() => {
+        handleAITurn(room, nextNextPlayerId)
+      }, 1500)
+    }
+  }
 }

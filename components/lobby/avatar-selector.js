@@ -65,7 +65,7 @@ export default function AvatarSelector({ selectedAvatar, onSelectAvatar }) {
             >
               <div className="w-full aspect-square rounded overflow-hidden">
                 <img
-                  src={`/avatars/avatar-${avatarId}.jpg`}
+                  src={`/avatars/avatar-${avatarId}.png`}
                   alt={`Avatar ${avatarId}`}
                   className="w-full h-full object-cover"
                 />
@@ -86,7 +86,11 @@ export default function AvatarSelector({ selectedAvatar, onSelectAvatar }) {
         >
           <div className="w-full aspect-square rounded overflow-hidden bg-gray-700 flex items-center justify-center">
             {uploading ? (
-              <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-white"></div>
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                className="rounded-full h-6 w-6 border-t-2 border-b-2 border-white"
+              />
             ) : customAvatar ? (
               <img
                 src={customAvatar || "/placeholder.svg"}
